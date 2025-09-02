@@ -29,6 +29,17 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	r.GET("/websocket", s.websocketHandler)
 
+	// User routes
+	userGroup := r.Group("/api/users")
+	{
+		userGroup.POST("/", s.CreateUserHandler)           // Create user
+		userGroup.GET("/", s.GetAllUsersHandler)          // Get all users
+		userGroup.GET("/:id", s.GetUserHandler)           // Get user by ID
+		userGroup.PUT("/:id", s.UpdateUserHandler)        // Update user
+		userGroup.PATCH("/:id/password", s.UpdatePasswordHandler) // Update password
+		userGroup.DELETE("/:id", s.DeleteUserHandler)     // Delete user
+	}
+
 	return r
 }
 

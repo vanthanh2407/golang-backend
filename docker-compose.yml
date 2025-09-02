@@ -10,38 +10,38 @@ services:
     environment:
       APP_ENV: ${APP_ENV}
       PORT: ${PORT}
-      BLUEPRINT_DB_HOST: ${BLUEPRINT_DB_HOST}
-      BLUEPRINT_DB_PORT: ${BLUEPRINT_DB_PORT}
-      BLUEPRINT_DB_DATABASE: ${BLUEPRINT_DB_DATABASE}
-      BLUEPRINT_DB_USERNAME: ${BLUEPRINT_DB_USERNAME}
-      BLUEPRINT_DB_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
+      MYSQL_DB_HOST: ${MYSQL_DB_HOST}
+      MYSQL_DB_PORT: ${MYSQL_DB_PORT}
+      MYSQL_DB_DATABASE: ${MYSQL_DB_DATABASE}
+      MYSQL_DB_USERNAME: ${MYSQL_DB_USERNAME}
+      MYSQL_DB_PASSWORD: ${MYSQL_DB_PASSWORD}
     depends_on:
-      mysql_bp:
+      mysql_golang:
         condition: service_healthy
     networks:
-      - blueprint
-  mysql_bp:
+      - mysql
+  mysql_golang:
     image: mysql:latest
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${BLUEPRINT_DB_DATABASE}
-      MYSQL_USER: ${BLUEPRINT_DB_USERNAME}
-      MYSQL_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${BLUEPRINT_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DB_DATABASE}
+      MYSQL_USER: ${MYSQL_DB_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_DB_ROOT_PASSWORD}
     ports:
-      - "${BLUEPRINT_DB_PORT}:3306"
+      - "${MYSQL_DB_PORT}:3306"
     volumes:
-      - mysql_volume_bp:/var/lib/mysql
+      - mysql_volume_golang:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "${BLUEPRINT_DB_HOST}", "-u", "${BLUEPRINT_DB_USERNAME}", "--password=${BLUEPRINT_DB_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "${MYSQL_DB_HOST}", "-u", "${MYSQL_DB_USERNAME}", "--password=${MYSQL_DB_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 3
       start_period: 15s 
     networks:
-      - blueprint
+      - mysql
 
 volumes:
-  mysql_volume_bp:
+  mysql_volume_golang:
 networks:
-  blueprint:
+  mysql:

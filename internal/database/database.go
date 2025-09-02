@@ -13,6 +13,16 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 )
 
+// User represents a user in the system
+type User struct {
+	ID        int       `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Password  string    `json:"-"` // Don't include password in JSON responses
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // Service represents a service that interacts with a database.
 type Service interface {
 	// Health returns a map of health status information.
@@ -22,6 +32,16 @@ type Service interface {
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
+
+	// User operations
+	CreateUser(ctx context.Context, username, email, password string) (*User, error)
+	GetUserByID(ctx context.Context, id int) (*User, error)
+	GetUserByEmail(ctx context.Context, email string) (*User, error)
+	GetUserByUsername(ctx context.Context, username string) (*User, error)
+	GetAllUsers(ctx context.Context) ([]*User, error)
+	UpdateUser(ctx context.Context, id int, username, email string) (*User, error)
+	UpdateUserPassword(ctx context.Context, id int, password string) error
+	DeleteUser(ctx context.Context, id int) error
 }
 
 type service struct {
@@ -29,11 +49,11 @@ type service struct {
 }
 
 var (
-	dbname     = os.Getenv("BLUEPRINT_DB_DATABASE")
-	password   = os.Getenv("BLUEPRINT_DB_PASSWORD")
-	username   = os.Getenv("BLUEPRINT_DB_USERNAME")
-	port       = os.Getenv("BLUEPRINT_DB_PORT")
-	host       = os.Getenv("BLUEPRINT_DB_HOST")
+	dbname     = os.Getenv("MYSQL_DB_DATABASE")
+	password   = os.Getenv("MYSQL_DB_PASSWORD")
+	username   = os.Getenv("MYSQL_DB_USERNAME")
+	port       = os.Getenv("MYSQL_DB_PORT")
+	host       = os.Getenv("MYSQL_DB_HOST")
 	dbInstance *service
 )
 
@@ -57,7 +77,235 @@ func New() Service {
 	dbInstance = &service{
 		db: db,
 	}
+
+	// Create tables
+	if err := dbInstance.createTables(); err != nil {
+		log.Fatal(err)
+	}
+
 	return dbInstance
+}
+
+// createTables creates all necessary tables
+func (s *service) createTables() error {
+	// Create users table
+	createUsersTable := `
+	CREATE TABLE IF NOT EXISTS users (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		username VARCHAR(50) UNIQUE NOT NULL,
+		email VARCHAR(100) UNIQUE NOT NULL,
+		password VARCHAR(255) NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		INDEX idx_email (email),
+		INDEX idx_username (username)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+	`
+
+	_, err := s.db.Exec(createUsersTable)
+	if err != nil {
+		return fmt.Errorf("failed to create users table: %v", err)
+	}
+
+	log.Println("Database tables created successfully")
+	return nil
+}
+
+// CreateUser creates a new user
+func (s *service) CreateUser(ctx context.Context, username, email, password string) (*User, error) {
+	query := `
+		INSERT INTO users (username, email, password) 
+		VALUES (?, ?, ?)
+	`
+	
+	result, err := s.db.ExecContext(ctx, query, username, email, password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %v", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last insert id: %v", err)
+	}
+
+	return s.GetUserByID(ctx, int(id))
+}
+
+// GetUserByID retrieves a user by ID
+func (s *service) GetUserByID(ctx context.Context, id int) (*User, error) {
+	query := `
+		SELECT id, username, email, password, created_at, updated_at 
+		FROM users 
+		WHERE id = ?
+	`
+	
+	var user User
+	var createdAt, updatedAt []byte
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&user.ID, &user.Username, &user.Email, &user.Password,
+		&createdAt, &updatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user: %v", err)
+	}
+
+	// Parse timestamps
+	user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
+	user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+
+	return &user, nil
+}
+
+// GetUserByEmail retrieves a user by email
+func (s *service) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	query := `
+		SELECT id, username, email, password, created_at, updated_at 
+		FROM users 
+		WHERE email = ?
+	`
+	
+	var user User
+	var createdAt, updatedAt []byte
+	err := s.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID, &user.Username, &user.Email, &user.Password,
+		&createdAt, &updatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user: %v", err)
+	}
+
+	// Parse timestamps
+	user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
+	user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+
+	return &user, nil
+}
+
+// GetUserByUsername retrieves a user by username
+func (s *service) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	query := `
+		SELECT id, username, email, password, created_at, updated_at 
+		FROM users 
+		WHERE username = ?
+	`
+	
+	var user User
+	var createdAt, updatedAt []byte
+	err := s.db.QueryRowContext(ctx, query, username).Scan(
+		&user.ID, &user.Username, &user.Email, &user.Password,
+		&createdAt, &updatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user: %v", err)
+	}
+
+	// Parse timestamps
+	user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
+	user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+
+	return &user, nil
+}
+
+// GetAllUsers retrieves all users
+func (s *service) GetAllUsers(ctx context.Context) ([]*User, error) {
+	query := `
+		SELECT id, username, email, password, created_at, updated_at 
+		FROM users 
+		ORDER BY created_at DESC
+	`
+	
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %v", err)
+	}
+	defer rows.Close()
+
+	var users []*User
+	for rows.Next() {
+		var user User
+		var createdAt, updatedAt []byte
+		err := rows.Scan(
+			&user.ID, &user.Username, &user.Email, &user.Password,
+			&createdAt, &updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %v", err)
+		}
+
+		// Parse timestamps
+		user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
+		user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+
+		users = append(users, &user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating users: %v", err)
+	}
+
+	return users, nil
+}
+
+// UpdateUser updates user information
+func (s *service) UpdateUser(ctx context.Context, id int, username, email string) (*User, error) {
+	query := `
+		UPDATE users 
+		SET username = ?, email = ? 
+		WHERE id = ?
+	`
+	
+	_, err := s.db.ExecContext(ctx, query, username, email, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user: %v", err)
+	}
+
+	return s.GetUserByID(ctx, id)
+}
+
+// UpdateUserPassword updates user password
+func (s *service) UpdateUserPassword(ctx context.Context, id int, password string) error {
+	query := `
+		UPDATE users 
+		SET password = ? 
+		WHERE id = ?
+	`
+	
+	_, err := s.db.ExecContext(ctx, query, password, id)
+	if err != nil {
+		return fmt.Errorf("failed to update user password: %v", err)
+	}
+
+	return nil
+}
+
+// DeleteUser deletes a user
+func (s *service) DeleteUser(ctx context.Context, id int) error {
+	query := `DELETE FROM users WHERE id = ?`
+	
+	result, err := s.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %v", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
+	return nil
 }
 
 // Health checks the health of the database connection by pinging the database.
