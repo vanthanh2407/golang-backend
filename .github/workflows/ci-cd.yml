@@ -49,5 +49,5 @@ jobs:
         run: |
           echo "$SSH_PRIVATE_KEY" > private_key
           chmod 600 private_key
-          scp -i private_key -o StrictHostKeyChecking=no -r . $VPS_USER@$VPS_HOST:/path/to/deployment/directory
-          ssh -i private_key -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "cd /path/to/deployment/directory && docker-compose up -d"
+          scp -i private_key -o StrictHostKeyChecking=no -r . $VPS_USER@$VPS_HOST:/home/ubuntu/deployment
+          ssh -i private_key -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "cd /home/ubuntu/deployment && docker-compose up -d"
