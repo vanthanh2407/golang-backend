@@ -1,0 +1,24 @@
+name: Test Secrets
+
+on:
+  workflow_dispatch: # Cho phép chạy thủ công từ GitHub UI
+
+jobs:
+  test-connection:
+    runs-on: ubuntu-latest
+    environment: ec2-deployment # Sử dụng environment nếu bạn đã tạo
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test SSH Connection
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
+          ssh -i private_key -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "echo 'SSH connection successful'" || echo "SSH connection failed"
+          rm private_key
