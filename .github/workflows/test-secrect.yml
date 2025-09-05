@@ -6,7 +6,7 @@ on:
 jobs:
   test-connection:
     runs-on: ubuntu-latest
-    environment: ec2-deployment # Sử dụng environment nếu bạn đã tạo
+    environment: VPS_USER
 
     steps:
       - name: Checkout code
