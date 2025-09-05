@@ -1,0 +1,53 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.24.3'
+
+      - name: Install dependencies
+        run: |
+          go mod download
+
+      - name: Build
+        run: |
+          docker build -t golang-backend .
+
+      - name: Run tests
+        run: |
+          docker run --rm golang-backend go test ./...
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Deploy to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
+          scp -i private_key -o StrictHostKeyChecking=no -r . $VPS_USER@$VPS_HOST:/path/to/deployment/directory
+          ssh -i private_key -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "cd /path/to/deployment/directory && docker-compose up -d"
