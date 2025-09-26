@@ -9,13 +9,13 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-	"golang-backend/internal/database"
+	"golang-backend/internal/mysql"
 )
 
 type Server struct {
 	port int
 
-	db database.Service
+	db mysql.Service
 }
 
 func NewServer() *http.Server {
@@ -23,7 +23,7 @@ func NewServer() *http.Server {
 	NewServer := &Server{
 		port: port,
 
-		db: database.New(),
+		db: mysql.New(),
 	}
 
 	// Declare Server config

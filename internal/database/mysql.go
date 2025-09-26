@@ -1,8 +1,9 @@
-package database
+package mysql
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,10 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/joho/godotenv/autoload"
+)
+
+var (
+	ErrUserNotFound = errors.New("user not found")
 )
 
 // User represents a user in the system
@@ -147,14 +152,20 @@ func (s *service) GetUserByID(ctx context.Context, id int) (*User, error) {
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %v", err)
 	}
 
 	// Parse timestamps
-	user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
-	user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+	user.CreatedAt, err = time.Parse("2006-01-02 15:04:05", string(createdAt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse created_at: %v", err)
+	}
+	user.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse updated_at: %v", err)
+	}
 
 	return &user, nil
 }
@@ -175,14 +186,20 @@ func (s *service) GetUserByEmail(ctx context.Context, email string) (*User, erro
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %v", err)
 	}
 
 	// Parse timestamps
-	user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
-	user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+	user.CreatedAt, err = time.Parse("2006-01-02 15:04:05", string(createdAt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse created_at: %v", err)
+	}
+	user.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse updated_at: %v", err)
+	}
 
 	return &user, nil
 }
@@ -203,14 +220,20 @@ func (s *service) GetUserByUsername(ctx context.Context, username string) (*User
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("user not found")
+			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %v", err)
 	}
 
 	// Parse timestamps
-	user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
-	user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+	user.CreatedAt, err = time.Parse("2006-01-02 15:04:05", string(createdAt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse created_at: %v", err)
+	}
+	user.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse updated_at: %v", err)
+	}
 
 	return &user, nil
 }
@@ -242,8 +265,14 @@ func (s *service) GetAllUsers(ctx context.Context) ([]*User, error) {
 		}
 
 		// Parse timestamps
-		user.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", string(createdAt))
-		user.UpdatedAt, _ = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+		user.CreatedAt, err = time.Parse("2006-01-02 15:04:05", string(createdAt))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse created_at for user %d: %v", user.ID, err)
+		}
+		user.UpdatedAt, err = time.Parse("2006-01-02 15:04:05", string(updatedAt))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse updated_at for user %d: %v", user.ID, err)
+		}
 
 		users = append(users, &user)
 	}
@@ -302,7 +331,7 @@ func (s *service) DeleteUser(ctx context.Context, id int) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("user not found")
+		return ErrUserNotFound
 	}
 
 	return nil
@@ -321,7 +350,6 @@ func (s *service) Health() map[string]string {
 	if err != nil {
 		stats["status"] = "down"
 		stats["error"] = fmt.Sprintf("db down: %v", err)
-		log.Fatalf("db down: %v", err) // Log the error and terminate the program
 		return stats
 	}
 
