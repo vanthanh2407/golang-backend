@@ -48,7 +48,18 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
+          # Install rsync and ssh client
+          sudo apt-get update && sudo apt-get install -y rsync openssh-client
+
+          # Setup SSH key
           echo "$SSH_PRIVATE_KEY" > private_key
           chmod 600 private_key
-          scp -i private_key -o StrictHostKeyChecking=no -r . $VPS_USER@$VPS_HOST:/home/ubuntu/deployment
+
+          # Ensure the deployment directory exists on the VPS
+          ssh -i private_key -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "mkdir -p /home/ubuntu/deployment"
+
+          # Sync files using rsync, excluding the .git directory
+          rsync -avz -e "ssh -i private_key -o StrictHostKeyChecking=no" --exclude='.git' ./ $VPS_USER@$VPS_HOST:/home/ubuntu/deployment/
+
+          # Run docker-compose on the VPS
           ssh -i private_key -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "cd /home/ubuntu/deployment && docker-compose up -d"
