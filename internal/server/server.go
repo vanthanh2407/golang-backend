@@ -9,7 +9,7 @@ import (
 
 	_ "github.com/joho/godotenv/autoload"
 
-	"golang-backend/internal/mysql"
+	"golang-backend/internal/database"
 )
 
 type Server struct {
